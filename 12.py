@@ -211,6 +211,11 @@ def join_course():
     keyboard.add_button("Отмена", color=VkKeyboardColor.SECONDARY)
     return keyboard.get_keyboard()
 
+def join_course_by_name():
+    keyboard = VkKeyboard(one_time=False)
+    keyboard.add_button("Приcоединиться", color=VkKeyboardColor.POSITIVE)
+    keyboard.add_button("Вернуться в главное меню", color=VkKeyboardColor.SECONDARY)
+    return keyboard.get_keyboard()
 # №1. Клавиатура с 3 кнопками: "показать всплывающее сообщение", "открыть URL" и изменить меню (свой собственный тип)
 keyboard_1 = VkKeyboard(**dict(one_time=False, inline=True))
 keyboard_1.add_callback_button(label='1 балл', color=VkKeyboardColor.POSITIVE, payload={"type": "1_point"})
@@ -317,7 +322,7 @@ for event in longpoll.listen():
                     tmp[main_list[main_list['id'] == event.object.peer_id].index.values.tolist()[0]] = False
                     main_list['is_searching'] = tmp
                     if event.object['text'].lower() in 'Клуб дзюдо 98'.lower().split():
-                        msg_send(event.object.peer_id, '1) Клуб дзюдо 98', join_course())
+                        msg_send(event.object.peer_id, '1) Клуб дзюдо 98', join_course_by_name())
                     else:
                         msg_send(event.object.peer_id, 'Кружки не найдены', None)
                     continue
@@ -353,6 +358,8 @@ for event in longpoll.listen():
                     msg_send(event.object.peer_id, 'Полная информация с местоположением и ссылкой на группу', join_course())
                 elif event.object['text'].lower() == 'Присоединиться'.lower():
                     msg_send(event.object.peer_id, 'Заявка на вступлени в кружок была отправлена на подтверждение', list_new_courses())
+                elif event.object['text'].lower() == 'Приcоединиться'.lower():
+                    msg_send(event.object.peer_id, 'Заявка на вступлени в кружок была отправлена на подтверждение', main_keyboard())
                 elif event.object['text'].lower() == 'Рейтинг'.lower():
                     msg_send(event.object.peer_id, 'Выберите область рейтинга', rank_keyboard())
                 elif event.object['text'].lower() == 'Галерея достижений'.lower():
