@@ -1,42 +1,19 @@
-# -*- coding: utf8 -*-
-from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api import VkApi
-from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.utils import get_random_id
-
-try:
-    from urllib import urlopen
-    import sys
-
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
-except Exception:
-    from urllib.request import urlopen
-import threading, time
-import requests, json, datetime
+from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
+from vk_api.keyboard import VkKeyboard, VkKeyboardColor
+import threading, datetime
+import json
 import pandas as pd
-import numpy as np
+# Общие
 
-print('ready')
-if 0:
-    print('cleared')
-    user_balance_data = pd.DataFrame({'balance': [], 'reg_date': [], 'promo_code': []}, index=[])
-    user_balance_data.index.name = 'vk_index'
-else:
-    try:
-        user_balance_data = pd.read_csv('filename.csv', sep=',')
-        indexs = user_balance_data['Unnamed: 0'].tolist()
-        del user_balance_data['Unnamed: 0']
-        user_balance_data.index = indexs
-    except Exception:
-        user_balance_data = pd.DataFrame({'balance': [], 'reg_date': [], 'promo_code': []}, index=[])
-        user_balance_data.index.name = 'vk_index'
-        user_balance_data.to_csv('filename.csv')
-print(user_balance_data.index.values.tolist())
+GROUP_TOKEN = '724ac9ca603d6d82f66f9716a19b06fb26108aad5d533deaefd375b7dd38853c3471bce39905f155bad0f'
+API_VERSION = '5.120'
 
-vkSession = VkApi(token='724ac9ca603d6d82f66f9716a19b06fb26108aad5d533deaefd375b7dd38853c3471bce39905f155bad0f')
-longPoll = VkBotLongPoll(vkSession, 204037695 )
-vk = vkSession.get_api()
+# Запускаем бот
+vk_session = VkApi(token=GROUP_TOKEN, api_version=API_VERSION)
+vk = vk_session.get_api()
+longpoll = VkBotLongPoll(vk_session, group_id=204037695)
 
 def create_empty_keyboard():
     keyboardd = VkKeyboard.get_empty_keyboard()
@@ -64,7 +41,7 @@ def new_achievement_2(event):
 
     def cansel_keyboard():
         keyboard = VkKeyboard(one_time=False)
-        keyboard.add_button("Отмена", color=VkKeyboardColor.DEFAULT)
+        keyboard.add_button("Отмена", color=VkKeyboardColor.SECONDARY)
         return keyboard.get_keyboard()
 
     msg_send(event.object.peer_id,
@@ -77,15 +54,15 @@ def course_search(event):
     global main_list
     msg_send(event.object.peer_id,
              'Выберите подходящий для вас вариант поиска', search_keyboard())
-
+def list_new_courses():
+    keyboard = VkKeyboard(one_time=False)
+    for i in range(9):
+        keyboard.add_button("Кружок номер " + str(i+1), color=VkKeyboardColor.PRIMARY)
+        keyboard.add_line()
+    keyboard.add_button("Назад", color=VkKeyboardColor.SECONDARY)
+    return keyboard.get_keyboard()
 def course_search_by_geopos(event):
-    def list_new_courses():
-        keyboard = VkKeyboard(one_time=False)
-        for i in range(9):
-            keyboard.add_button("Кружок номер " + str(i+1), color=VkKeyboardColor.PRIMARY)
-            keyboard.add_line()
-        keyboard.add_button("Назад", color=VkKeyboardColor.DEFAULT)
-        return keyboard.get_keyboard()
+
 
 
     msg_send(event.object.peer_id,
@@ -97,7 +74,7 @@ def course_search_by_text(event):
         for i in range(9):
             keyboard.add_button("Кружок номер " + str(i+1), color=VkKeyboardColor.PRIMARY)
             keyboard.add_line()
-        keyboard.add_button("Назад", color=VkKeyboardColor.DEFAULT)
+        keyboard.add_button("Назад", color=VkKeyboardColor.SECONDARY)
         return keyboard.get_keyboard()
     msg_send(event.object.peer_id,
              'Список кружков в городе пользователя (с индексами для поиска).\n'
@@ -110,15 +87,18 @@ def upload_achinment(event):
     global main_list
 
     tmp = main_list['achivments'].copy()
-    tmp[main_list[main_list['id'] == event.object.peer_id].index.values.tolist()[0]].append(event.object['text'])
+    tmp[main_list[main_list['id'] == event.object.peer_id].index.values.tolist()[0]].append(event.object['text']+': на одобрении')
     main_list['achivments'] = tmp
 
-    for item in event.object['attachments']:
-        if item['type'] == 'photo':
-            print('photo', event.object.peer_id, event.object['text'], None, ['photo{}_{}'.format(item['photo']['owner_id'], item['photo']['id'])])
-            msg_send(event.object.peer_id, event.object['text'], None, ['photo{}_{}'.format(item['photo']['owner_id'], item['photo']['id'])])
-            #send_photo(648859248, 'photo{}_{}'.format(item['photo']['owner_id'], item['photo']['id']), 'sfsdf')
-
+    teacher = main_list['teacher'][main_list[main_list['id'] == event.object.peer_id].index.values.tolist()[0]]
+    vk.messages.send(
+        user_id=teacher,
+        random_id=get_random_id(),
+        peer_id=teacher,
+        keyboard=keyboard_1.get_keyboard(),
+        message='Заявка на достижение:\n'
+                'От: https://vk.com/id'+str(event.object.peer_id)+
+                '\nДостижение:\n'+event.object['text'])
 
 def current_achs(event):
     global main_list
@@ -139,7 +119,8 @@ def sharing_achs_keyboard():
 
 
     keyboard.add_button("Хочу опубликовать одно из них", color=VkKeyboardColor.PRIMARY)
-    keyboard.add_button("Нaзaд", color=VkKeyboardColor.DEFAULT)
+    keyboard.add_button("Галерея достижений", color=VkKeyboardColor.PRIMARY)
+    keyboard.add_button("Нaзaд", color=VkKeyboardColor.SECONDARY)
     return keyboard.get_keyboard()
 
 def coutses_keyboard():
@@ -148,7 +129,7 @@ def coutses_keyboard():
     # True если она должна закрваться
 
     keyboard.add_button("Найти новый кружок", color=VkKeyboardColor.PRIMARY)
-    keyboard.add_button("Нaзад", color=VkKeyboardColor.DEFAULT)
+    keyboard.add_button("Нaзад", color=VkKeyboardColor.SECONDARY)
     return keyboard.get_keyboard()
 
 def achievement_keyboard():
@@ -159,7 +140,7 @@ def achievement_keyboard():
     keyboard.add_button("Посмотреть имеющиеся", color=VkKeyboardColor.PRIMARY)
     keyboard.add_button("Добавить новое", color=VkKeyboardColor.POSITIVE)
     keyboard.add_line()
-    keyboard.add_button("Hазад", color=VkKeyboardColor.DEFAULT)
+    keyboard.add_button("Hазад", color=VkKeyboardColor.SECONDARY)
 
     return keyboard.get_keyboard()
 
@@ -168,7 +149,7 @@ def new_achievement_keyboard():
     # False Если клавиатура должна оставаться откртой после нажатия на кнопку
     # True если она должна закрваться
     for i in range(2, 5):
-        keyboard.add_button(str(i)+" балла", color=VkKeyboardColor.DEFAULT)
+        keyboard.add_button(str(i)+" балла", color=VkKeyboardColor.SECONDARY)
     keyboard.add_line()
     for i in range(5, 8):
         keyboard.add_button(str(i)+" баллов", color=VkKeyboardColor.PRIMARY)
@@ -191,7 +172,7 @@ def search_keyboard():
     keyboard.add_button("По геопозиции", color=VkKeyboardColor.PRIMARY)
     keyboard.add_button("По имени в моем городе", color=VkKeyboardColor.PRIMARY)
     keyboard.add_line()
-    keyboard.add_button("Вернуться в главное меню", color=VkKeyboardColor.DEFAULT)
+    keyboard.add_button("Вернуться в главное меню", color=VkKeyboardColor.SECONDARY)
 
     return keyboard.get_keyboard()
 
@@ -202,6 +183,16 @@ def sharing_keyboard():
     keyboard.add_button("В истории", color=VkKeyboardColor.POSITIVE)
     keyboard.add_button("В сообщениях", color=VkKeyboardColor.POSITIVE)
     return keyboard.get_keyboard()
+
+def rank_keyboard():
+    keyboard = VkKeyboard(one_time=False)
+    keyboard.add_button("В кружке", color=VkKeyboardColor.POSITIVE)
+    keyboard.add_button("По городу", color=VkKeyboardColor.POSITIVE)
+    keyboard.add_button("По стране", color=VkKeyboardColor.POSITIVE)
+    keyboard.add_line()
+    keyboard.add_button("Hазад", color=VkKeyboardColor.SECONDARY)
+
+    return keyboard.get_keyboard()
 def hau_keyboard():
     keyboard = VkKeyboard(one_time=False)
     keyboard.add_button("Я ученик", color=VkKeyboardColor.POSITIVE)
@@ -209,13 +200,29 @@ def hau_keyboard():
     keyboard.add_button("Я учитель", color=VkKeyboardColor.POSITIVE)
     return keyboard.get_keyboard()
 
+def join_course():
+    keyboard = VkKeyboard(one_time=False)
+    keyboard.add_button("Присоединиться", color=VkKeyboardColor.POSITIVE)
+    keyboard.add_button("Отмена", color=VkKeyboardColor.SECONDARY)
+    return keyboard.get_keyboard()
+
+# №1. Клавиатура с 3 кнопками: "показать всплывающее сообщение", "открыть URL" и изменить меню (свой собственный тип)
+keyboard_1 = VkKeyboard(**dict(one_time=False, inline=True))
+keyboard_1.add_callback_button(label='1 балл', color=VkKeyboardColor.POSITIVE, payload={"type": "1_point"})
+keyboard_1.add_callback_button(label='2 балла', color=VkKeyboardColor.POSITIVE, payload={"type": "2_point"})
+keyboard_1.add_callback_button(label='3 балла', color=VkKeyboardColor.POSITIVE, payload={"type": "3_point"})
+keyboard_1.add_line()
+keyboard_1.add_callback_button(label='Отклонить достижение', color=VkKeyboardColor.PRIMARY, payload={"type": "Denied"})
 
 def msg_send(user_id, text, keyboard=main_keyboard(), attachments =[]):
     max_len = 4092
     if 1:
         if text != '':
             kols = len(text) // max_len
+
+
             vk.messages.send(peer_id=user_id,
+                             user_id=user_id,
                              message=text[0:max_len],
                              random_id=get_random_id(),
                              attachment = attachments,
@@ -224,19 +231,15 @@ def msg_send(user_id, text, keyboard=main_keyboard(), attachments =[]):
                 vk.messages.send(peer_id=user_id,
                                  message=text[max_len * i:max_len * (i + 1)],
                                  random_id=get_random_id())
-    #except Exception:
-    #    pass
-#msg_send(389093483, 'Ghbdtn', None, 'photo389093483_457248228')
 
-main_list = pd.DataFrame({'id': [3819093483, 305703132], 'type': ['teacher', 'student'], 'is_sending_ach':[False, False], 'teacher':[305703132, 389093483],'is_sharing_ach':[False, False],'sharing_ach_id':[None, None], 'courses':[['Клуб дзюдо 98'], []], 'lessons_times':[['Дзюдо 16:00 - 18:00', '-', 'Английский 16;00 - 18:00', '-', 'Дзюдо 16:00-18:00', '-', '-'], ['Дзюдо 16:00 - 18:00', '-', 'Английский 16;00 - 18:00', '-', 'Дзюдо 16:00-18:00', '-', '-']], 'achivments':[[], []]})
+main_list = pd.DataFrame({'id': [389093483, 305703132], 'type': ['teacher', 'student'], 'is_sending_ach':[False, False], 'teacher':[389093483, 305703132],'is_sharing_ach':[False, False],'sharing_ach_id':[None, None], 'courses':[['Клуб дзюдо 98'], []], 'lessons_times':[['Дзюдо 16:00 - 18:00', '-', 'Английский 16;00 - 18:00', '-', 'Дзюдо 16:00-18:00', '-', '-'], ['Дзюдо 16:00 - 18:00', '-', 'Английский 16;00 - 18:00', '-', 'Дзюдо 16:00-18:00', '-', '-']], 'achivments':[[], []]})
 
-print('start')
-while True:
+for event in longpoll.listen():
+    # отправляем меню 1го вида на любое текстовое сообщение от пользователя
+    if event.type == VkBotEventType.MESSAGE_NEW:
 
-    if 1:
-        for event in longPoll.listen():
-            if event.type == VkBotEventType.MESSAGE_NEW:
-
+        if event.object['text'] != '':
+            if event.from_user:
                 if not event.object.peer_id in main_list.id.values.tolist():
                     if event.object['text'].lower() == 'Я ученик'.lower():
                         main_list = main_list.append({'id': event.object.peer_id,
@@ -293,23 +296,32 @@ while True:
                         tmp[main_list[main_list['id'] == event.object.peer_id].index.values.tolist()[0]] = False
                         main_list['is_sharing_ach'] = tmp
                         msg_send(event.object.peer_id, 'Как вы хотите поделиться достижением?', keyboard=sharing_keyboard())
+                        continue
+                    elif event.object['text']=='Нaзaд':
+                        tmp = main_list['is_sharing_ach'].copy()
+                        tmp[main_list[main_list['id'] == event.object.peer_id].index.values.tolist()[0]] = False
+                        main_list['is_sharing_ach'] = tmp
+                        msg_send(event.object.peer_id, 'Хорошо', None)
+
                     else:
                         msg_send(event.object.peer_id, 'Пришлите число- номер достижения', None)
-                    continue
+                        continue
 
 
 
-                if 'привет' in event.object['text'].lower() or event.object['text'].lower() == 'начать' or event.object['text'].lower() == 'Вернуться в главное меню'.lower():
+                if 'привет' in event.object['text'].lower() or event.object['text'].lower() == 'начать':
+                    msg_send(event.object.peer_id, 'Привет!', main_keyboard())
+                elif event.object['text'].lower() == 'Вернуться в главное меню'.lower():
                     msg_send(event.object.peer_id, 'Хорошо!', main_keyboard())
                 elif event.object['text'].lower() == 'мои кружки':
                     threading.Thread(target=courses, args=[event]).start()
                 elif event.object['text'].lower() == 'Найти новый кружок'.lower():
                     threading.Thread(target=course_search, args=[event]).start()
-                elif event.object['text'].lower() == 'По геопозиции'.lower():
+                elif event.object['text'].lower() == 'По геопозиции'.lower() or event.object['text'].lower() == 'Отмена'.lower():
                     threading.Thread(target=course_search_by_geopos, args=[event]).start()
                 elif event.object['text'].lower() == 'По имени в моем городе'.lower():
                     threading.Thread(target=course_search_by_text, args=[event]).start()
-                elif event.object['text'].lower() == 'Мои достижения'.lower():
+                elif event.object['text'].lower() == 'Мои достижения'.lower() or event.object['text'].lower() == 'Нaзaд'.lower():
                     threading.Thread(target=achievement, args=[event]).start()
                 elif event.object['text'].lower() == 'Добавить новое'.lower():
                     threading.Thread(target=new_achievement_2, args=[event]).start()
@@ -323,7 +335,14 @@ while True:
                     msg_send(event.object.peer_id, 'Хорошо!', main_keyboard())
                 elif event.object['text'].lower() == 'Назад'.lower():
                     msg_send(event.object.peer_id, 'Хорошо!', search_keyboard())
-
+                elif 'Кружок номер'.lower() in event.object['text'].lower():
+                    msg_send(event.object.peer_id, 'Полная информация с местоположением и ссылкой на группу', join_course())
+                elif event.object['text'].lower() == 'Присоединиться'.lower():
+                    msg_send(event.object.peer_id, 'Заявка на вступлени в кружок была отправлена на подтверждение', list_new_courses())
+                elif event.object['text'].lower() == 'Рейтинг'.lower():
+                    msg_send(event.object.peer_id, 'Выберите область рейтинга', rank_keyboard())
+                elif event.object['text'].lower() in ['По стране'.lower(), 'По городу'.lower(), 'В кружке'.lower()]:
+                    msg_send(event.object.peer_id, 'Ваш рейтинг '+event.object['text'].lower()+': 1/1', rank_keyboard())
 
                 elif event.object['text'].lower() == 'Расписание'.lower():
                     tmp = main_list['lessons_times'][
@@ -337,7 +356,37 @@ while True:
                         msg_send(event.object.peer_id, msg, None)
                     else:
                         msg_send(event.object.peer_id, 'У вас еще нет расписания', None)
-
-
                 else:
                     msg_send(event.object.peer_id, 'Не смог понять команду')
+                # Если клиент пользователя не поддерживает callback-кнопки,
+                # нажатие на них будет отправлять текстовые
+                # сообщения. Т.е. они будут работать как обычные inline кнопки.
+
+
+    # обрабатываем клики по callback кнопкам
+    elif event.type == VkBotEventType.MESSAGE_EVENT:
+        print(event)
+        if 'point' in event.object.payload.get('type'):
+            tmp = main_list['achivments'].copy()
+            for i in main_list[main_list['teacher']==event.object.peer_id].index.values.tolist():
+                print(tmp[i])
+                if len(tmp[i])>0:
+                    if tmp[i][-1][-1*len(': на одобрении'):] == ': на одобрении':
+
+                        tmp[i][-1] = tmp[i][-1][:-1*len(': на одобрении')]+' баллов: '+event.object.payload.get('type')[0]
+            main_list['achivments'] = tmp
+
+            last_id = vk.messages.edit(
+                      peer_id=event.obj.peer_id,
+                      message='Подтверждено, поставлен баллов: '+event.object.payload.get('type')[0],
+                      conversation_message_id=event.obj.conversation_message_id,
+                      keyboard=None)
+        elif event.object.payload.get('type') == 'Denied':
+            last_id = vk.messages.edit(
+                      peer_id=event.obj.peer_id,
+                      message='Отклонено',
+                      conversation_message_id=event.obj.conversation_message_id,
+                      keyboard=None)
+
+if __name__ == '__main__':
+    print()
