@@ -69,6 +69,7 @@ def course_search_by_geopos(event):
              'Появится изображение карты с ближайшими кружками в радиусе 1 км, где каждый имеет свои индекс для выбора',list_new_courses())
 
 def course_search_by_text(event):
+    global main_list
     def list_new_courses():
         keyboard = VkKeyboard(one_time=False)
         for i in range(9):
@@ -76,6 +77,10 @@ def course_search_by_text(event):
             keyboard.add_line()
         keyboard.add_button("Назад", color=VkKeyboardColor.SECONDARY)
         return keyboard.get_keyboard()
+
+    tmp = main_list['is_searching'].copy()
+    tmp[main_list[main_list['id'] == event.object.peer_id].index.values.tolist()[0]] = True
+    main_list['is_searching'] = tmp
     msg_send(event.object.peer_id,
              'Список кружков в городе пользователя (с индексами для поиска).\n'
              'В дальнейшем планируется сделать сортировку кружков по рейтенгу, подходящих под пол и возраст ребенка,',None)
@@ -232,7 +237,7 @@ def msg_send(user_id, text, keyboard=main_keyboard(), attachments =[]):
                                  message=text[max_len * i:max_len * (i + 1)],
                                  random_id=get_random_id())
 
-main_list = pd.DataFrame({'id': [389093483, 305703132], 'type': ['teacher', 'student'], 'is_sending_ach':[False, False], 'teacher':[389093483, 305703132],'is_sharing_ach':[False, False],'sharing_ach_id':[None, None], 'courses':[['Клуб дзюдо 98'], []], 'lessons_times':[['Дзюдо 16:00 - 18:00', '-', 'Английский 16;00 - 18:00', '-', 'Дзюдо 16:00-18:00', '-', '-'], ['Дзюдо 16:00 - 18:00', '-', 'Английский 16;00 - 18:00', '-', 'Дзюдо 16:00-18:00', '-', '-']], 'achivments':[[], []]})
+main_list = pd.DataFrame({'id': [389093483, 305703132], 'type': ['teacher', 'student'], 'is_sending_ach':[False, False], 'teacher':[389093483, 305703132],'is_sharing_ach':[False, False],'is_searching':[False, False],'sharing_ach_id':[None, None], 'courses':[['Клуб дзюдо 98'], []], 'lessons_times':[['Дзюдо 16:00 - 18:00', '-', 'Английский 16;00 - 18:00', '-', 'Дзюдо 16:00-18:00', '-', '-'], ['Дзюдо 16:00 - 18:00', '-', 'Английский 16;00 - 18:00', '-', 'Дзюдо 16:00-18:00', '-', '-']], 'achivments':[[], []]})
 
 for event in longpoll.listen():
     # отправляем меню 1го вида на любое текстовое сообщение от пользователя
@@ -240,6 +245,7 @@ for event in longpoll.listen():
 
         if event.object['text'] != '':
             if event.from_user:
+                main_list.to_csv('data.csv', encoding='utf-8', index=False)
                 if not event.object.peer_id in main_list.id.values.tolist():
                     if event.object['text'].lower() == 'Я ученик'.lower():
                         main_list = main_list.append({'id': event.object.peer_id,
@@ -306,7 +312,15 @@ for event in longpoll.listen():
                     else:
                         msg_send(event.object.peer_id, 'Пришлите число- номер достижения', None)
                         continue
-
+                elif main_list['is_searching'][main_list[main_list['id'] == event.object.peer_id].index.values.tolist()[0]] == True:
+                    tmp = main_list['is_searching'].copy()
+                    tmp[main_list[main_list['id'] == event.object.peer_id].index.values.tolist()[0]] = False
+                    main_list['is_searching'] = tmp
+                    if event.object['text'].lower() in 'Клуб дзюдо 98'.lower().split():
+                        msg_send(event.object.peer_id, '1) Клуб дзюдо 98', join_course())
+                    else:
+                        msg_send(event.object.peer_id, 'Кружки не найдены', None)
+                    continue
 
 
                 if 'привет' in event.object['text'].lower() or event.object['text'].lower() == 'начать':
@@ -341,6 +355,9 @@ for event in longpoll.listen():
                     msg_send(event.object.peer_id, 'Заявка на вступлени в кружок была отправлена на подтверждение', list_new_courses())
                 elif event.object['text'].lower() == 'Рейтинг'.lower():
                     msg_send(event.object.peer_id, 'Выберите область рейтинга', rank_keyboard())
+                elif event.object['text'].lower() == 'Галерея достижений'.lower():
+                    msg_send(event.object.peer_id, 'Здесь будут достижения с их фотографиями и видео', None)
+
                 elif event.object['text'].lower() in ['По стране'.lower(), 'По городу'.lower(), 'В кружке'.lower()]:
                     msg_send(event.object.peer_id, 'Ваш рейтинг '+event.object['text'].lower()+': 1/1', rank_keyboard())
 
@@ -373,12 +390,12 @@ for event in longpoll.listen():
                 if len(tmp[i])>0:
                     if tmp[i][-1][-1*len(': на одобрении'):] == ': на одобрении':
 
-                        tmp[i][-1] = tmp[i][-1][:-1*len(': на одобрении')]+' баллов: '+event.object.payload.get('type')[0]
+                        tmp[i][-1] = tmp[i][-1][:-1*len(': на одобрении')]+'. Баллов: '+event.object.payload.get('type')[0]
             main_list['achivments'] = tmp
 
             last_id = vk.messages.edit(
                       peer_id=event.obj.peer_id,
-                      message='Подтверждено, поставлен баллов: '+event.object.payload.get('type')[0],
+                      message='Подтверждено, поставлены баллов: '+event.object.payload.get('type')[0],
                       conversation_message_id=event.obj.conversation_message_id,
                       keyboard=None)
         elif event.object.payload.get('type') == 'Denied':
